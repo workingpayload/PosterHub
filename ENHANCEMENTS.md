@@ -70,20 +70,24 @@ each tier).
 
 ## Low / polish
 
-24. **Settings screen** — beyond attribution (see #1), a natural home for cache-clear, app version,
-    and possibly a poster resolution preference (#14).
-25. **"4K"/resolution badge on poster thumbnails** — a small badge on cards whose top-ranked poster
-    is very high-res would make the app's core value prop (highest-res posters) visible before
-    tapping in.
-26. **Sort options in Favorites** — currently fixed to most-recently-added; alphabetical / by
-    rating would be easy additions since the data's already local.
-27. **Optional light theme or Material You dynamic color** — the cinematic dark theme is a
-    deliberate, reasonable choice, but a light/system-following alternative behind a toggle would
-    widen accessibility for users sensitive to dark UIs.
-28. **Haptic feedback** — favoriting, successful save, and double-tap-zoom in the fullscreen viewer
-    have no haptic tick; small but noticeable polish on modern devices.
-29. **Accessibility contrast pass** — `Mist` (`#C9C9D6`) muted text sits on top of animated,
-    poster-derived gradients in `DynamicBackground`; worth spot-checking contrast ratios since the
-    background color isn't fixed.
-30. **Large-font-scale layout check** — several dimensions (carousel `height(430.dp)`, fixed grid
-    aspect ratios) haven't been verified against large system font-scale settings.
+24. ~~**Settings screen**~~ — ✅ Done. The About screen grew a Settings section: app version,
+    "Clear image cache", the two toggles from #27 and #14.
+25. ~~**"4K"/resolution badge on poster thumbnails**~~ — ✅ Partially done, rescoped. Grid thumbnails
+    (Home/Search) only ever have a `posterPath` string — TMDB's list endpoints don't return
+    dimensions, so badging them would mean an extra `/images` call per visible card (N+1, against
+    the app's lazy-loading design). Badged the Detail hero and variant strip instead, where
+    `PosterImage.width/height` are already loaded (`PosterImage.isUltraHd`, width ≥ 1800).
+26. ~~**Sort options in Favorites**~~ — ✅ Done: Recently Added / Title (A-Z) / Top Rated. Added
+    `FavoriteMovie.voteAverage` (wasn't stored before) to make the rating sort possible.
+27. ~~**Optional light theme or Material You dynamic color**~~ — ✅ Done via a new `SettingsStore` +
+    "Match system theme" toggle (Settings screen); `PostershubTheme` switches to
+    `dynamicLight/DarkColorScheme` on API 31+ or the plain Material3 light/dark scheme below that.
+28. ~~**Haptic feedback**~~ — ✅ Done: long-press (poster quick menu), favorite toggle, save success,
+    double-tap zoom.
+29. ~~**Accessibility contrast pass**~~ — ✅ Done as a code-level mitigation rather than a full manual
+    audit (that needs real visual testing across many source images): `DynamicBackground` now clamps
+    the luminance of palette-extracted colors so Mist/white text can't land on a too-bright gradient.
+30. ~~**Large-font-scale layout check**~~ — ✅ Found and fixed the one real risk: Detail's 4-button
+    action row (Favorite/Save/Wallpaper/Share) had no overflow protection and could clip at large
+    font scales or on narrow screens — made it horizontally scrollable. Everywhere else already used
+    `maxLines`/`Ellipsis` defensively, so no other changes were needed.
