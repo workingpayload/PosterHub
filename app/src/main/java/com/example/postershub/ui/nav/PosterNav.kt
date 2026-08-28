@@ -102,6 +102,13 @@ fun PosterApp() {
                         onOpenMovie = { fav, key ->
                             navController.navigate(DetailRoute(fav.id, fav.posterPath, fav.title, key, fav.isTv))
                         },
+                        onGoToSearch = {
+                            navController.navigate(SearchRoute) {
+                                popUpTo(HomeRoute) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
                     )
                 }
                 composable<DetailRoute> { entry ->
@@ -111,6 +118,9 @@ fun PosterApp() {
                         sharedScope = this@SharedTransitionLayout,
                         animatedScope = this,
                         onBack = { navController.popBackStack() },
+                        onOpenMovie = { movie, key ->
+                            navController.navigate(DetailRoute(movie.id, movie.posterPath, movie.title, key, movie.isTv))
+                        },
                         onOpenFullscreen = { startIndex, startUrl ->
                             navController.navigate(
                                 FullscreenRoute(

@@ -17,10 +17,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
@@ -28,6 +30,8 @@ import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -73,12 +77,16 @@ fun FullscreenPosterScreen(
     val ready = posters.isNotEmpty()
 
     var pendingUrl by remember { mutableStateOf<String?>(null) }
+    var isSaving by remember { mutableStateOf(false) }
+    var isWallpapering by remember { mutableStateOf(false) }
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val url = pendingUrl
         pendingUrl = null
         if (granted && url != null) {
             scope.launch {
+                isSaving = true
                 val ok = ImageActions.savePoster(context, url, route.title)
+                isSaving = false
                 Toast.makeText(context, if (ok) "Saved to gallery" else "Save failed", Toast.LENGTH_SHORT).show()
             }
         }
@@ -91,7 +99,9 @@ fun FullscreenPosterScreen(
             PackageManager.PERMISSION_GRANTED
         ) {
             scope.launch {
+                isSaving = true
                 val ok = ImageActions.savePoster(context, url, route.title)
+                isSaving = false
                 Toast.makeText(context, if (ok) "Saved to gallery" else "Save failed", Toast.LENGTH_SHORT).show()
             }
         } else {
@@ -103,9 +113,11 @@ fun FullscreenPosterScreen(
     fun wallpaper(url: String?) {
         url ?: return
         scope.launch {
+            isWallpapering = true
             val ok = ImageActions.applyWallpaper(
                 context, url, WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK
             )
+            isWallpapering = false
             Toast.makeText(context, if (ok) "Wallpaper set" else "Couldn't set wallpaper", Toast.LENGTH_SHORT).show()
         }
     }
@@ -161,6 +173,14 @@ fun FullscreenPosterScreen(
                 }
             }
 
+            PageIndicator(
+                current = pagerState.currentPage,
+                total = posters.size,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp),
+            )
+
             val currentUrl = posters.getOrNull(pagerState.currentPage)?.url
             Row(
                 modifier = Modifier
@@ -169,8 +189,8 @@ fun FullscreenPosterScreen(
                     .padding(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OverlayIcon(Icons.Filled.Download, "Save") { save(currentUrl) }
-                OverlayIcon(Icons.Filled.Wallpaper, "Wallpaper") { wallpaper(currentUrl) }
+                OverlayIcon(Icons.Filled.Download, "Save", loading = isSaving) { save(currentUrl) }
+                OverlayIcon(Icons.Filled.Wallpaper, "Wallpaper", loading = isWallpapering) { wallpaper(currentUrl) }
             }
         }
 
@@ -186,19 +206,53 @@ fun FullscreenPosterScreen(
     }
 }
 
+/** Dots for a handful of variants; a "n / total" pill once there are too many to dot out. */
+@Composable
+private fun PageIndicator(current: Int, total: Int, modifier: Modifier = Modifier) {
+    if (total <= 1) return
+    if (total <= 12) {
+        Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            repeat(total) { i ->
+                val selected = i == current
+                Box(
+                    Modifier
+                        .size(if (selected) 8.dp else 6.dp)
+                        .clip(CircleShape)
+                        .background(if (selected) Color.White else Color.White.copy(alpha = 0.4f))
+                )
+            }
+        }
+    } else {
+        Box(
+            modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.Black.copy(alpha = 0.5f))
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+        ) {
+            Text("${current + 1} / $total", color = Color.White, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
 @Composable
 private fun OverlayIcon(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     modifier: Modifier = Modifier,
+    loading: Boolean = false,
     onClick: () -> Unit,
 ) {
     IconButton(
         onClick = onClick,
+        enabled = !loading,
         modifier = modifier
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = 0.4f)),
     ) {
-        Icon(icon, contentDescription = label, tint = Color.White)
+        if (loading) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+        } else {
+            Icon(icon, contentDescription = label, tint = Color.White)
+        }
     }
 }

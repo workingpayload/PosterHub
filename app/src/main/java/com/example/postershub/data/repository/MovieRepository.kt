@@ -8,6 +8,7 @@ import androidx.paging.PagingState
 import com.example.postershub.data.remote.TmdbApi
 import com.example.postershub.data.remote.dto.TmdbMovieDto
 import com.example.postershub.data.remote.dto.TmdbPageDto
+import com.example.postershub.domain.model.CastMember
 import com.example.postershub.domain.model.MediaType
 import com.example.postershub.domain.model.Movie
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +28,10 @@ fun TmdbMovieDto.toMovie(default: MediaType = MediaType.MOVIE): Movie {
         releaseDate = releaseDate ?: firstAirDate,
         voteAverage = voteAverage,
         mediaType = type,
+        genres = genres.map { it.name },
+        runtimeMinutes = runtime ?: episodeRunTime.firstOrNull(),
+        cast = credits?.cast.orEmpty().take(15).map { CastMember(it.id, it.name, it.character, it.profilePath) },
+        similar = similar?.results.orEmpty().map { it.toMovie(type) },
     )
 }
 

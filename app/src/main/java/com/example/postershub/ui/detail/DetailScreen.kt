@@ -58,15 +58,19 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.example.postershub.data.ImageUrl
+import com.example.postershub.domain.model.CastMember
+import com.example.postershub.domain.model.Movie
 import com.example.postershub.domain.model.PosterImage
-import com.example.postershub.ui.components.ShimmerBox
 import com.example.postershub.ui.components.DynamicBackground
+import com.example.postershub.ui.components.PosterCard
+import com.example.postershub.ui.components.ShimmerBox
 import com.example.postershub.ui.nav.DetailRoute
 import com.example.postershub.ui.nav.variantThumbKey
 import com.example.postershub.ui.theme.Gold
@@ -82,6 +86,7 @@ fun DetailScreen(
     sharedScope: SharedTransitionScope,
     animatedScope: AnimatedVisibilityScope,
     onBack: () -> Unit,
+    onOpenMovie: (Movie, String) -> Unit,
     onOpenFullscreen: (startIndex: Int, startUrl: String?) -> Unit,
     viewModel: DetailViewModel = viewModel(factory = viewModelFactory { DetailViewModel(route.movieId, route.isTv, route.posterPath) }),
 ) {
@@ -98,6 +103,8 @@ fun DetailScreen(
 
     var showWallpaperDialog by remember { mutableStateOf(false) }
     var pendingUrl by remember { mutableStateOf<String?>(null) }
+    var isSaving by remember { mutableStateOf(false) }
+    var isApplyingWallpaper by remember { mutableStateOf(false) }
 
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -106,7 +113,9 @@ fun DetailScreen(
         pendingUrl = null
         if (granted && url != null) {
             scope.launch {
+                isSaving = true
                 val ok = ImageActions.savePoster(context, url, route.title)
+                isSaving = false
                 Toast.makeText(context, if (ok) "Saved to gallery" else "Save failed", Toast.LENGTH_SHORT).show()
             }
         } else if (!granted) {
@@ -121,7 +130,9 @@ fun DetailScreen(
             PackageManager.PERMISSION_GRANTED
         ) {
             scope.launch {
+                isSaving = true
                 val ok = ImageActions.savePoster(context, url, route.title)
+                isSaving = false
                 Toast.makeText(context, if (ok) "Saved to gallery" else "Save failed", Toast.LENGTH_SHORT).show()
             }
         } else {
@@ -134,7 +145,9 @@ fun DetailScreen(
         val url = primaryUrl ?: return
         showWallpaperDialog = false
         scope.launch {
+            isApplyingWallpaper = true
             val ok = ImageActions.applyWallpaper(context, url, which)
+            isApplyingWallpaper = false
             Toast.makeText(context, if (ok) "Wallpaper set" else "Couldn't set wallpaper", Toast.LENGTH_SHORT).show()
         }
     }
@@ -189,6 +202,7 @@ fun DetailScreen(
             ) {
                 if (route.isTv) Text("TV Series", color = Gold, fontWeight = FontWeight.SemiBold)
                 state.movie?.year?.let { Text(it, color = Mist) }
+                state.movie?.runtimeMinutes?.let { Text(formatRuntime(it, route.isTv), color = Mist) }
                 state.movie?.let {
                     Icon(Icons.Filled.Star, contentDescription = null, tint = Gold, modifier = Modifier.size(16.dp))
                     Text(String.format("%.1f", it.voteAverage), color = Mist)
@@ -197,6 +211,15 @@ fun DetailScreen(
                     val best = state.posters.first()
                     Text("• ${best.width}×${best.height}", color = Mist)
                 }
+            }
+
+            state.movie?.genres?.takeIf { it.isNotEmpty() }?.let { genres ->
+                Text(
+                    genres.joinToString("  •  "),
+                    color = Gold,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(start = 24.dp, top = 6.dp, end = 24.dp),
+                )
             }
 
             // Actions
@@ -210,8 +233,10 @@ fun DetailScreen(
                     tint = if (isFavorite) Gold else Color.White,
                     onClick = { viewModel.toggleFavorite(route.title, route.posterPath) },
                 )
-                ActionButton(Icons.Filled.Download, "Save") { download() }
-                ActionButton(Icons.Filled.Wallpaper, "Wallpaper") { showWallpaperDialog = true }
+                ActionButton(Icons.Filled.Download, "Save", loading = isSaving) { download() }
+                ActionButton(Icons.Filled.Wallpaper, "Wallpaper", loading = isApplyingWallpaper) {
+                    showWallpaperDialog = true
+                }
             }
 
             state.movie?.overview?.takeIf { it.isNotBlank() }?.let { overview ->
@@ -221,6 +246,23 @@ fun DetailScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
+            }
+
+            state.movie?.cast?.takeIf { it.isNotEmpty() }?.let { cast ->
+                Text(
+                    "Cast",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, top = 20.dp, bottom = 8.dp),
+                )
+                LazyRow(
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    items(cast, key = { it.id }) { member -> CastChip(member) }
+                }
             }
 
             if (state.posters.size > 1) {
@@ -239,6 +281,34 @@ fun DetailScreen(
                     baseKey = route.sharedKey,
                     onClick = onOpenFullscreen,
                 )
+            }
+
+            state.movie?.similar?.takeIf { it.isNotEmpty() }?.let { similar ->
+                Text(
+                    "More Like This",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, top = 20.dp, bottom = 8.dp),
+                )
+                LazyRow(
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(similar, key = { it.id }) { sim ->
+                        val key = "similar-${sim.id}"
+                        with(sharedScope) {
+                            PosterCard(
+                                movie = sim,
+                                sharedKey = key,
+                                animatedScope = animatedScope,
+                                onClick = { onOpenMovie(sim, key) },
+                                modifier = Modifier.width(110.dp),
+                            )
+                        }
+                    }
+                }
             }
 
             if (state.loading) {
@@ -280,18 +350,66 @@ fun DetailScreen(
     }
 }
 
+/** "2h 14m" for movies, "45m/ep" for TV (uses the first episode's runtime). */
+private fun formatRuntime(minutes: Int, isTv: Boolean): String {
+    if (isTv) return "${minutes}m/ep"
+    val h = minutes / 60
+    val m = minutes % 60
+    return if (h > 0) "${h}h ${m}m" else "${m}m"
+}
+
 @Composable
 private fun ActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     tint: Color = Color.White,
+    loading: Boolean = false,
     onClick: () -> Unit,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        IconButton(onClick = onClick) {
-            Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(28.dp))
+        IconButton(onClick = onClick, enabled = !loading) {
+            if (loading) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = tint)
+            } else {
+                Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(28.dp))
+            }
         }
         Text(label, style = MaterialTheme.typography.labelSmall, color = Mist)
+    }
+}
+
+@Composable
+private fun CastChip(member: CastMember) {
+    Column(
+        modifier = Modifier.width(72.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.08f)),
+        ) {
+            member.profilePath?.let { path ->
+                AsyncImage(
+                    model = ImageUrl.tmdb(path, "w185"),
+                    contentDescription = member.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            member.name,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        member.character?.takeIf { it.isNotBlank() }?.let {
+            Text(it, style = MaterialTheme.typography.labelSmall, color = Mist, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 

@@ -19,11 +19,13 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -41,7 +43,7 @@ import com.example.postershub.util.viewModelFactory
 
 private const val ROW_HEIGHT_DP = 195
 
-@OptIn(ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     sharedScope: SharedTransitionScope,
@@ -52,58 +54,64 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    LazyColumn(
+    PullToRefreshBox(
+        isRefreshing = state.refreshing,
+        onRefresh = viewModel::loadAll,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        item {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, top = 16.dp, end = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "PostersHub",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold,
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            item {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, top = 16.dp, end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "PostersHub",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                        )
+                        Text("4K movie & TV posters", color = Mist, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    IconButton(onClick = onOpenAbout) {
+                        Icon(Icons.Filled.Info, contentDescription = "About")
+                    }
+                }
+            }
+            item {
+                with(sharedScope) {
+                    CarouselSection(
+                        sectionState = state.trending,
+                        animatedScope = animatedScope,
+                        onClick = onOpenMovie,
+                        onRetry = { viewModel.load(HomeSection.TRENDING) },
                     )
-                    Text("4K movie & TV posters", color = Mist, style = MaterialTheme.typography.bodyMedium)
-                }
-                IconButton(onClick = onOpenAbout) {
-                    Icon(Icons.Filled.Info, contentDescription = "About")
                 }
             }
-        }
-        item {
-            with(sharedScope) {
-                CarouselSection(
-                    sectionState = state.trending,
-                    animatedScope = animatedScope,
-                    onClick = onOpenMovie,
-                    onRetry = { viewModel.load(HomeSection.TRENDING) },
-                )
+            posterRow("Popular", state.popular, "popular", sharedScope, animatedScope, onOpenMovie) {
+                viewModel.load(HomeSection.POPULAR)
             }
-        }
-        posterRow("Popular", state.popular, "popular", sharedScope, animatedScope, onOpenMovie) {
-            viewModel.load(HomeSection.POPULAR)
-        }
-        posterRow("Top Rated", state.topRated, "top", sharedScope, animatedScope, onOpenMovie) {
-            viewModel.load(HomeSection.TOP_RATED)
-        }
-        posterRow("Now Playing", state.nowPlaying, "now", sharedScope, animatedScope, onOpenMovie) {
-            viewModel.load(HomeSection.NOW_PLAYING)
-        }
-        posterRow("Trending Series", state.trendingTv, "tvtrend", sharedScope, animatedScope, onOpenMovie) {
-            viewModel.load(HomeSection.TRENDING_TV)
-        }
-        posterRow("Popular Series", state.popularTv, "tvpop", sharedScope, animatedScope, onOpenMovie) {
-            viewModel.load(HomeSection.POPULAR_TV)
-        }
-        posterRow("Top Rated Series", state.topRatedTv, "tvtop", sharedScope, animatedScope, onOpenMovie) {
-            viewModel.load(HomeSection.TOP_RATED_TV)
+            posterRow("Top Rated", state.topRated, "top", sharedScope, animatedScope, onOpenMovie) {
+                viewModel.load(HomeSection.TOP_RATED)
+            }
+            posterRow("Now Playing", state.nowPlaying, "now", sharedScope, animatedScope, onOpenMovie) {
+                viewModel.load(HomeSection.NOW_PLAYING)
+            }
+            posterRow("Trending Series", state.trendingTv, "tvtrend", sharedScope, animatedScope, onOpenMovie) {
+                viewModel.load(HomeSection.TRENDING_TV)
+            }
+            posterRow("Popular Series", state.popularTv, "tvpop", sharedScope, animatedScope, onOpenMovie) {
+                viewModel.load(HomeSection.POPULAR_TV)
+            }
+            posterRow("Top Rated Series", state.topRatedTv, "tvtop", sharedScope, animatedScope, onOpenMovie) {
+                viewModel.load(HomeSection.TOP_RATED_TV)
+            }
         }
     }
 }

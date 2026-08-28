@@ -7,19 +7,28 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -35,9 +44,10 @@ import com.example.postershub.domain.model.Movie
 import com.example.postershub.ui.components.PosterCard
 import com.example.postershub.ui.components.ShimmerBox
 import com.example.postershub.ui.theme.Mist
+import com.example.postershub.util.classify
 import com.example.postershub.util.viewModelFactory
 
-@OptIn(ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     sharedScope: SharedTransitionScope,
@@ -46,6 +56,7 @@ fun SearchScreen(
     viewModel: SearchViewModel = viewModel(factory = viewModelFactory { SearchViewModel() }),
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
+    val mediaFilter by viewModel.mediaFilter.collectAsStateWithLifecycle()
     val results = viewModel.results.collectAsLazyPagingItems()
 
     Column(Modifier.fillMaxSize()) {
@@ -53,13 +64,33 @@ fun SearchScreen(
             value = query,
             onValueChange = viewModel::onQueryChange,
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { viewModel.onQueryChange("") }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                    }
+                }
+            },
             placeholder = { Text("Search movies") },
             singleLine = true,
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 16.dp),
         )
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            MediaFilter.entries.forEach { filter ->
+                FilterChip(
+                    selected = mediaFilter == filter,
+                    onClick = { viewModel.onMediaFilterChange(filter) },
+                    label = { Text(filter.label()) },
+                )
+            }
+        }
 
         val refreshing = results.loadState.refresh is LoadState.Loading
         val error = results.loadState.refresh as? LoadState.Error
@@ -67,32 +98,70 @@ fun SearchScreen(
         when {
             query.trim().length < 2 -> CenterHint("Type at least 2 characters to search.")
             refreshing -> SearchSkeleton()
-            error != null -> CenterHint(error.error.message ?: "Search failed.")
+            error != null -> CenterHint(error.error.classify().message)
             results.itemCount == 0 -> CenterHint("No results for \"$query\".")
-            else -> LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+            // isRefreshing is always false here: once results.refresh() flips loadState.refresh to
+            // Loading, the `refreshing` branch above takes over and shows the skeleton instead.
+            else -> PullToRefreshBox(
+                isRefreshing = false,
+                onRefresh = { results.refresh() },
                 modifier = Modifier.fillMaxSize(),
             ) {
-                items(
-                    count = results.itemCount,
-                    key = results.itemKey { "${it.mediaType}-${it.id}" },
-                ) { index ->
-                    val movie = results[index] ?: return@items
-                    val key = "search-${movie.mediaType}-${movie.id}"
-                    with(sharedScope) {
-                        PosterCard(
-                            movie = movie,
-                            sharedKey = key,
-                            animatedScope = animatedScope,
-                            onClick = { onOpenMovie(movie, key) },
-                        )
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    items(
+                        count = results.itemCount,
+                        key = results.itemKey { "${it.mediaType}-${it.id}" },
+                    ) { index ->
+                        val movie = results[index] ?: return@items
+                        val key = "search-${movie.mediaType}-${movie.id}"
+                        with(sharedScope) {
+                            PosterCard(
+                                movie = movie,
+                                sharedKey = key,
+                                animatedScope = animatedScope,
+                                showTypeBadge = mediaFilter == MediaFilter.ALL,
+                                onClick = { onOpenMovie(movie, key) },
+                            )
+                        }
+                    }
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        AppendFooter(loadState = results.loadState.append, onRetry = results::retry)
                     }
                 }
             }
         }
+    }
+}
+
+private fun MediaFilter.label(): String = when (this) {
+    MediaFilter.ALL -> "All"
+    MediaFilter.MOVIE -> "Movies"
+    MediaFilter.TV -> "TV"
+}
+
+@Composable
+private fun AppendFooter(loadState: LoadState, onRetry: () -> Unit) {
+    when (loadState) {
+        is LoadState.Loading -> Box(
+            Modifier.fillMaxWidth().padding(16.dp),
+            contentAlignment = Alignment.Center,
+        ) { CircularProgressIndicator() }
+        is LoadState.Error -> Box(
+            Modifier.fillMaxWidth().padding(16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(loadState.error.classify().message, color = Mist)
+                TextButton(onClick = onRetry) { Text("Retry") }
+            }
+        }
+        is LoadState.NotLoading -> Unit
     }
 }
 

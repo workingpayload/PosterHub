@@ -7,6 +7,9 @@ import com.example.postershub.di.ServiceLocator
 import com.example.postershub.domain.model.Movie
 import com.example.postershub.util.ErrorKind
 import com.example.postershub.util.classify
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,6 +33,7 @@ data class HomeUiState(
     val trendingTv: SectionState<List<Movie>> = SectionState.Loading,
     val popularTv: SectionState<List<Movie>> = SectionState.Loading,
     val topRatedTv: SectionState<List<Movie>> = SectionState.Loading,
+    val refreshing: Boolean = false,
 )
 
 class HomeViewModel(
@@ -40,23 +44,34 @@ class HomeViewModel(
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
     init {
-        loadAll()
+        viewModelScope.launch { loadAllSections() }
     }
 
+    /** Reloads every section in parallel; drives the pull-to-refresh spinner until all finish. */
     fun loadAll() {
-        HomeSection.entries.forEach(::load)
+        viewModelScope.launch {
+            _state.update { it.copy(refreshing = true) }
+            loadAllSections()
+            _state.update { it.copy(refreshing = false) }
+        }
+    }
+
+    private suspend fun loadAllSections() = coroutineScope {
+        HomeSection.entries.map { section -> async { performLoad(section) } }.awaitAll()
     }
 
     fun load(section: HomeSection) {
-        viewModelScope.launch {
-            updateSection(section, SectionState.Loading)
-            val result = runCatching { fetch(section).filter { it.posterPath != null } }
-            val next = result.fold(
-                onSuccess = { SectionState.Success(it) },
-                onFailure = { val e = it.classify(); SectionState.Error(e.message, e.kind) },
-            )
-            updateSection(section, next)
-        }
+        viewModelScope.launch { performLoad(section) }
+    }
+
+    private suspend fun performLoad(section: HomeSection) {
+        updateSection(section, SectionState.Loading)
+        val result = runCatching { fetch(section).filter { it.posterPath != null } }
+        val next = result.fold(
+            onSuccess = { SectionState.Success(it) },
+            onFailure = { val e = it.classify(); SectionState.Error(e.message, e.kind) },
+        )
+        updateSection(section, next)
     }
 
     private suspend fun fetch(section: HomeSection): List<Movie> = when (section) {

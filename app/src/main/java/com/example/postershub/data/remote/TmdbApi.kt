@@ -24,7 +24,10 @@ interface TmdbApi {
     suspend fun nowPlaying(@Query("page") page: Int = 1): TmdbPageDto
 
     @GET("movie/{id}")
-    suspend fun details(@Path("id") id: Int): TmdbMovieDto
+    suspend fun details(
+        @Path("id") id: Int,
+        @Query("append_to_response") appendToResponse: String = "credits,similar",
+    ): TmdbMovieDto
 
     @GET("movie/{id}/images")
     suspend fun images(
@@ -46,7 +49,10 @@ interface TmdbApi {
     suspend fun onTheAirTv(@Query("page") page: Int = 1): TmdbPageDto
 
     @GET("tv/{id}")
-    suspend fun tvDetails(@Path("id") id: Int): TmdbMovieDto
+    suspend fun tvDetails(
+        @Path("id") id: Int,
+        @Query("append_to_response") appendToResponse: String = "credits,similar",
+    ): TmdbMovieDto
 
     @GET("tv/{id}/images")
     suspend fun tvImages(

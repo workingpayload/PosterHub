@@ -24,7 +24,29 @@ data class TmdbMovieDto(
     @SerialName("first_air_date") val firstAirDate: String? = null, // TV
     @SerialName("vote_average") val voteAverage: Double = 0.0,
     @SerialName("media_type") val mediaType: String? = null, // present in /trending/all and /search/multi
+    val genres: List<TmdbGenreDto> = emptyList(), // present on /movie/{id} and /tv/{id}
+    val runtime: Int? = null, // movies only
+    @SerialName("episode_run_time") val episodeRunTime: List<Int> = emptyList(), // TV only
+    val credits: TmdbCreditsDto? = null, // present when append_to_response=credits
+    val similar: TmdbSimilarDto? = null, // present when append_to_response=similar
 )
+
+@Serializable
+data class TmdbGenreDto(val id: Int, val name: String)
+
+@Serializable
+data class TmdbCreditsDto(val cast: List<TmdbCastDto> = emptyList())
+
+@Serializable
+data class TmdbCastDto(
+    val id: Int,
+    val name: String,
+    val character: String? = null,
+    @SerialName("profile_path") val profilePath: String? = null,
+)
+
+@Serializable
+data class TmdbSimilarDto(val results: List<TmdbMovieDto> = emptyList())
 
 @Serializable
 data class TmdbExternalIdsDto(
