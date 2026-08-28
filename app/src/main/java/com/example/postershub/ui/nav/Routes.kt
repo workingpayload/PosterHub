@@ -23,6 +23,9 @@ object SearchRoute
 @Serializable
 object FavoritesRoute
 
+@Serializable
+object AboutRoute
+
 // Detail: carries just enough to render the shared-element hero instantly, before details load.
 @Serializable
 data class DetailRoute(

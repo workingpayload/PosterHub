@@ -22,6 +22,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.example.postershub.ui.about.AboutScreen
 import com.example.postershub.ui.detail.DetailScreen
 import com.example.postershub.ui.favorites.FavoritesScreen
 import com.example.postershub.ui.fullscreen.FullscreenPosterScreen
@@ -79,7 +80,11 @@ fun PosterApp() {
                         onOpenMovie = { movie, key ->
                             navController.navigate(DetailRoute(movie.id, movie.posterPath, movie.title, key, movie.isTv))
                         },
+                        onOpenAbout = { navController.navigate(AboutRoute) },
                     )
+                }
+                composable<AboutRoute> {
+                    AboutScreen(onBack = { navController.popBackStack() })
                 }
                 composable<SearchRoute> {
                     SearchScreen(

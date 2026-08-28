@@ -9,6 +9,7 @@ import com.example.postershub.data.repository.PosterRepository
 import com.example.postershub.di.ServiceLocator
 import com.example.postershub.domain.model.Movie
 import com.example.postershub.domain.model.PosterImage
+import com.example.postershub.util.classify
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,7 +61,7 @@ class DetailViewModel(
                 }
             }.onSuccess { _state.value = it }
                 .onFailure {
-                    _state.value = _state.value.copy(loading = false, error = it.message ?: "Failed to load.")
+                    _state.value = _state.value.copy(loading = false, error = it.classify().message)
                 }
         }
     }
