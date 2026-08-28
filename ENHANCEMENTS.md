@@ -17,33 +17,27 @@ each tier).
 
 ## High
 
-4. **Pull-to-refresh** — Home and Search have no swipe-to-refresh; the only recovery path is a
-   full-screen error's Retry button. Standard Compose `PullToRefreshBox` would fix this cheaply.
-5. **Favorites are unusable offline in practice** — `FavoriteMovie.posterUrl` is stored, but
-   there's no guarantee Coil's disk cache still has that exact URL cached; a saved favorite can
-   fail to render with no network. Consider caching the poster bytes locally for favorites
-   specifically, not just relying on the image loader's LRU cache.
-6. **No swipe-to-delete / multi-select in Favorites** — the only way to remove a favorite today is
-   opening its detail screen and re-tapping the heart. Swipe-to-dismiss on the grid item is the
-   expected pattern here.
-7. **Favorites empty state has no call to action** — it just shows a text hint. Add a button that
-   jumps to the Search tab.
-8. **Search needs a clear (×) button** — `OutlinedTextField` has no trailing clear icon; clearing
-   a query requires manually deleting every character.
-9. **Search needs a movie/TV filter** — `search/multi` mixes movies and TV with no way to narrow
-   results, and no media-type badge on result cards to tell them apart at a glance.
-10. **Pagination footer state is invisible** — `SearchScreen` handles `loadState.refresh` but never
-    surfaces `loadState.append` (loading-more spinner or an error row at the bottom when the next
-    page fails).
-11. **Detail screen underuses available TMDB data** — only title/year/rating/overview are shown;
-    TMDB also exposes genres, runtime, cast, and similar-titles, all of which would make the detail
-    screen feel complete instead of poster-focused-only.
-12. **No download/save loading state** — tapping Save or Wallpaper gives no immediate feedback
-    while `ImageActions` decodes a full-res (potentially 4K) bitmap; on a slow connection the button
-    just looks unresponsive until the Toast appears. Show a spinner/disabled state during the
-    operation.
-13. **No indicator of *how many* posters are in the fullscreen viewer** — `HorizontalPager` has no
-    page-dot indicator, so users can't tell if there are 2 variants or 20 without swiping blind.
+4. ~~**Pull-to-refresh**~~ — ✅ Done. `PullToRefreshBox` on Home (drives `HomeViewModel.loadAll()`)
+   and Search (calls `results.refresh()`).
+5. ~~**Favorites are unusable offline in practice**~~ — ✅ Done. `FavoritesStore` now downloads and
+   stores a local JPEG per favorite (`filesDir/favorite_posters/<id>.jpg`); the grid renders from
+   that file instead of a remote URL, and the file is deleted when unfavorited.
+6. ~~**No swipe-to-delete in Favorites**~~ — ✅ Done via `SwipeToDismissBox` per grid item.
+   (Multi-select wasn't added — swipe-per-item covers the common case.)
+7. ~~**Favorites empty state has no call to action**~~ — ✅ Done. "Browse & Search" button jumps to
+   the Search tab.
+8. ~~**Search needs a clear (×) button**~~ — ✅ Done.
+9. ~~**Search needs a movie/TV filter**~~ — ✅ Done. All/Movies/TV `FilterChip`s filter the paged
+   results client-side (`PagingData.filter`); a type badge shows on cards when filter = All.
+10. ~~**Pagination footer state is invisible**~~ — ✅ Done. `results.loadState.append` now renders a
+    spinner or an error + Retry row at the bottom of the grid.
+11. ~~**Detail screen underuses available TMDB data**~~ — ✅ Done. Added genres, runtime
+    (`{h}h {m}m` / `{m}m/ep`), a cast row (`append_to_response=credits,similar`), and a "More Like
+    This" row that navigates to another Detail screen.
+12. ~~**No download/save loading state**~~ — ✅ Done on Detail and Fullscreen: the action button
+    shows a small spinner and disables itself while `ImageActions` runs.
+13. ~~**No indicator of how many posters are in the fullscreen viewer**~~ — ✅ Done. Dot indicator up
+    to 12 variants, "n / total" pill beyond that.
 
 ## Medium
 
