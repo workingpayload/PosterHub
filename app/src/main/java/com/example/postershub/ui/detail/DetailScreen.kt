@@ -2,6 +2,7 @@ package com.example.postershub.ui.detail
 
 import android.Manifest
 import android.app.WallpaperManager
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.AlertDialog
@@ -43,9 +45,14 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,9 +73,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.example.postershub.data.ImageUrl
 import com.example.postershub.domain.model.CastMember
+import com.example.postershub.domain.model.ImageSource
 import com.example.postershub.domain.model.Movie
 import com.example.postershub.domain.model.PosterImage
 import com.example.postershub.ui.components.DynamicBackground
+import com.example.postershub.ui.components.MeteredConfirmDialog
 import com.example.postershub.ui.components.PosterCard
 import com.example.postershub.ui.components.ShimmerBox
 import com.example.postershub.ui.nav.DetailRoute
@@ -76,6 +85,7 @@ import com.example.postershub.ui.nav.variantThumbKey
 import com.example.postershub.ui.theme.Gold
 import com.example.postershub.ui.theme.Mist
 import com.example.postershub.util.ImageActions
+import com.example.postershub.util.isMeteredConnection
 import com.example.postershub.util.viewModelFactory
 import kotlinx.coroutines.launch
 
@@ -105,6 +115,18 @@ fun DetailScreen(
     var pendingUrl by remember { mutableStateOf<String?>(null) }
     var isSaving by remember { mutableStateOf(false) }
     var isApplyingWallpaper by remember { mutableStateOf(false) }
+    var pendingMeteredAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    fun guardedRun(action: () -> Unit) {
+        if (context.isMeteredConnection()) pendingMeteredAction = action else action()
+    }
+
+    LaunchedEffect(state.error) {
+        val message = state.error ?: return@LaunchedEffect
+        val result = snackbarHostState.showSnackbar(message, actionLabel = "Retry", duration = SnackbarDuration.Long)
+        if (result == SnackbarResult.ActionPerformed) viewModel.load()
+    }
 
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -150,6 +172,16 @@ fun DetailScreen(
             isApplyingWallpaper = false
             Toast.makeText(context, if (ok) "Wallpaper set" else "Couldn't set wallpaper", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    fun shareMovie() {
+        val title = state.movie?.title ?: route.title
+        val url = "https://www.themoviedb.org/${if (route.isTv) "tv" else "movie"}/${route.movieId}"
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, "Check out $title on TMDB: $url")
+        }
+        context.startActivity(Intent.createChooser(intent, "Share"))
     }
 
     DynamicBackground(posterUrl = primaryUrl, modifier = Modifier.fillMaxSize()) {
@@ -233,10 +265,11 @@ fun DetailScreen(
                     tint = if (isFavorite) Gold else Color.White,
                     onClick = { viewModel.toggleFavorite(route.title, route.posterPath) },
                 )
-                ActionButton(Icons.Filled.Download, "Save", loading = isSaving) { download() }
+                ActionButton(Icons.Filled.Download, "Save", loading = isSaving) { guardedRun(::download) }
                 ActionButton(Icons.Filled.Wallpaper, "Wallpaper", loading = isApplyingWallpaper) {
                     showWallpaperDialog = true
                 }
+                ActionButton(Icons.Filled.Share, "Share") { shareMovie() }
             }
 
             state.movie?.overview?.takeIf { it.isNotBlank() }?.let { overview ->
@@ -328,6 +361,8 @@ fun DetailScreen(
         ) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
         }
+
+        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
     }
 
     if (showWallpaperDialog) {
@@ -336,16 +371,23 @@ fun DetailScreen(
             title = { Text("Set wallpaper") },
             text = { Text("Where should this poster be applied?") },
             confirmButton = {
-                TextButton(onClick = { applyWallpaper(WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK) }) {
+                TextButton(onClick = { guardedRun { applyWallpaper(WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK) } }) {
                     Text("Both")
                 }
             },
             dismissButton = {
                 Row {
-                    TextButton(onClick = { applyWallpaper(WallpaperManager.FLAG_SYSTEM) }) { Text("Home") }
-                    TextButton(onClick = { applyWallpaper(WallpaperManager.FLAG_LOCK) }) { Text("Lock") }
+                    TextButton(onClick = { guardedRun { applyWallpaper(WallpaperManager.FLAG_SYSTEM) } }) { Text("Home") }
+                    TextButton(onClick = { guardedRun { applyWallpaper(WallpaperManager.FLAG_LOCK) } }) { Text("Lock") }
                 }
             },
+        )
+    }
+
+    pendingMeteredAction?.let { action ->
+        MeteredConfirmDialog(
+            onConfirm = { pendingMeteredAction = null; action() },
+            onDismiss = { pendingMeteredAction = null },
         )
     }
 }
@@ -448,10 +490,28 @@ private fun VariantsStrip(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
+                    Text(
+                        variantBadgeText(poster),
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(6.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color.Black.copy(alpha = 0.55f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
                 }
             }
         }
     }
+}
+
+/** "TMDB · EN" / "Fanart · No text" — explains why a variant is ranked where it is. */
+private fun variantBadgeText(poster: PosterImage): String {
+    val source = if (poster.source == ImageSource.TMDB) "TMDB" else "Fanart"
+    val language = if (poster.isTextless) "No text" else poster.language?.uppercase() ?: "EN"
+    return "$source · $language"
 }
 
 @Composable

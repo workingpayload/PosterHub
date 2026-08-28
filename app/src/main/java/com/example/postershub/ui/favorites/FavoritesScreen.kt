@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -28,6 +29,7 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -54,9 +56,15 @@ fun FavoritesScreen(
     animatedScope: AnimatedVisibilityScope,
     onOpenMovie: (FavoriteMovie, String) -> Unit,
     onGoToSearch: () -> Unit,
+    scrollToTopSignal: Int = 0,
     viewModel: FavoritesViewModel = viewModel(factory = viewModelFactory { FavoritesViewModel() }),
 ) {
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
+    val gridState = rememberLazyGridState()
+
+    LaunchedEffect(scrollToTopSignal) {
+        if (scrollToTopSignal > 0) gridState.animateScrollToItem(0)
+    }
 
     if (favorites.isEmpty()) {
         Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
@@ -81,7 +89,8 @@ fun FavoritesScreen(
             modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp),
         )
         LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
+            state = gridState,
+            columns = GridCells.Adaptive(minSize = 110.dp),
             contentPadding = PaddingValues(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),

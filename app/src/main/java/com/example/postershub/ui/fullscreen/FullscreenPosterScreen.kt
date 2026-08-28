@@ -52,10 +52,12 @@ import com.example.postershub.data.ImageUrl
 import com.example.postershub.di.ServiceLocator
 import com.example.postershub.domain.model.MediaType
 import com.example.postershub.domain.model.PosterImage
+import com.example.postershub.ui.components.MeteredConfirmDialog
 import com.example.postershub.ui.components.ZoomableImage
 import com.example.postershub.ui.nav.FullscreenRoute
 import com.example.postershub.ui.nav.heroOrVariantKey
 import com.example.postershub.util.ImageActions
+import com.example.postershub.util.isMeteredConnection
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -79,6 +81,12 @@ fun FullscreenPosterScreen(
     var pendingUrl by remember { mutableStateOf<String?>(null) }
     var isSaving by remember { mutableStateOf(false) }
     var isWallpapering by remember { mutableStateOf(false) }
+    var pendingMeteredAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    fun guardedRun(action: () -> Unit) {
+        if (context.isMeteredConnection()) pendingMeteredAction = action else action()
+    }
+
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val url = pendingUrl
         pendingUrl = null
@@ -189,8 +197,8 @@ fun FullscreenPosterScreen(
                     .padding(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OverlayIcon(Icons.Filled.Download, "Save", loading = isSaving) { save(currentUrl) }
-                OverlayIcon(Icons.Filled.Wallpaper, "Wallpaper", loading = isWallpapering) { wallpaper(currentUrl) }
+                OverlayIcon(Icons.Filled.Download, "Save", loading = isSaving) { guardedRun { save(currentUrl) } }
+                OverlayIcon(Icons.Filled.Wallpaper, "Wallpaper", loading = isWallpapering) { guardedRun { wallpaper(currentUrl) } }
             }
         }
 
@@ -202,6 +210,13 @@ fun FullscreenPosterScreen(
                 .statusBarsPadding()
                 .padding(8.dp),
             onClick = onBack,
+        )
+    }
+
+    pendingMeteredAction?.let { action ->
+        MeteredConfirmDialog(
+            onConfirm = { pendingMeteredAction = null; action() },
+            onDismiss = { pendingMeteredAction = null },
         )
     }
 }

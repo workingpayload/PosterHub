@@ -3,6 +3,7 @@ package com.example.postershub.ui.search
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,12 +13,16 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,11 +59,18 @@ fun SearchScreen(
     sharedScope: SharedTransitionScope,
     animatedScope: AnimatedVisibilityScope,
     onOpenMovie: (Movie, String) -> Unit,
+    scrollToTopSignal: Int = 0,
     viewModel: SearchViewModel = viewModel(factory = viewModelFactory { SearchViewModel() }),
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
     val mediaFilter by viewModel.mediaFilter.collectAsStateWithLifecycle()
+    val recentQueries by viewModel.recentQueries.collectAsStateWithLifecycle()
     val results = viewModel.results.collectAsLazyPagingItems()
+    val gridState = rememberLazyGridState()
+
+    LaunchedEffect(scrollToTopSignal) {
+        if (scrollToTopSignal > 0) gridState.animateScrollToItem(0)
+    }
 
     Column(Modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -96,9 +109,17 @@ fun SearchScreen(
         val error = results.loadState.refresh as? LoadState.Error
 
         when {
-            query.trim().length < 2 -> CenterHint("Type at least 2 characters to search.")
+            query.trim().length < 2 -> if (recentQueries.isNotEmpty()) {
+                RecentSearches(
+                    queries = recentQueries,
+                    onSelect = viewModel::onQueryChange,
+                    onClear = viewModel::clearRecentQueries,
+                )
+            } else {
+                CenterHint("Type at least 2 characters to search.")
+            }
             refreshing -> SearchSkeleton()
-            error != null -> CenterHint(error.error.classify().message)
+            error != null -> CenterHint(error.error.classify().message, onRetry = results::retry)
             results.itemCount == 0 -> CenterHint("No results for \"$query\".")
             // isRefreshing is always false here: once results.refresh() flips loadState.refresh to
             // Loading, the `refreshing` branch above takes over and shows the skeleton instead.
@@ -108,7 +129,8 @@ fun SearchScreen(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
+                    state = gridState,
+                    columns = GridCells.Adaptive(minSize = 110.dp),
                     contentPadding = PaddingValues(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -166,16 +188,52 @@ private fun AppendFooter(loadState: LoadState, onRetry: () -> Unit) {
 }
 
 @Composable
-private fun CenterHint(text: String) {
+private fun RecentSearches(queries: List<String>, onSelect: (String) -> Unit, onClear: () -> Unit) {
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            Text(
+                "Recent",
+                style = MaterialTheme.typography.labelLarge,
+                color = Mist,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onClear) { Text("Clear") }
+        }
+        LazyColumn {
+            items(queries) { q ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelect(q) }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    Icon(Icons.Filled.History, contentDescription = null, tint = Mist)
+                    Text(q)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CenterHint(text: String, onRetry: (() -> Unit)? = null) {
     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = Mist, style = MaterialTheme.typography.bodyLarge)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text, color = Mist, style = MaterialTheme.typography.bodyLarge)
+            onRetry?.let { TextButton(onClick = it) { Text("Retry") } }
+        }
     }
 }
 
 @Composable
 private fun SearchSkeleton() {
     LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
+        columns = GridCells.Adaptive(minSize = 110.dp),
         contentPadding = PaddingValues(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),

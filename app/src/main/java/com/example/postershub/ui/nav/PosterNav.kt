@@ -14,6 +14,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -40,6 +43,11 @@ fun PosterApp() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDest = backStackEntry?.destination
 
+    // Bumped when a tab is reselected while already active, so its screen scrolls back to top.
+    var homeScrollToTop by remember { mutableIntStateOf(0) }
+    var searchScrollToTop by remember { mutableIntStateOf(0) }
+    var favoritesScrollToTop by remember { mutableIntStateOf(0) }
+
     val tabs = listOf(
         Tab("Home", Icons.Filled.Home, HomeRoute),
         Tab("Search", Icons.Filled.Search, SearchRoute),
@@ -57,10 +65,18 @@ fun PosterApp() {
                         NavigationBarItem(
                             selected = selected,
                             onClick = {
-                                navController.navigate(tab.route) {
-                                    popUpTo(HomeRoute) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
+                                if (selected) {
+                                    when (tab.route) {
+                                        HomeRoute -> homeScrollToTop++
+                                        SearchRoute -> searchScrollToTop++
+                                        FavoritesRoute -> favoritesScrollToTop++
+                                    }
+                                } else {
+                                    navController.navigate(tab.route) {
+                                        popUpTo(HomeRoute) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
                                 }
                             },
                             icon = { Icon(tab.icon, contentDescription = tab.label) },
@@ -81,6 +97,7 @@ fun PosterApp() {
                             navController.navigate(DetailRoute(movie.id, movie.posterPath, movie.title, key, movie.isTv))
                         },
                         onOpenAbout = { navController.navigate(AboutRoute) },
+                        scrollToTopSignal = homeScrollToTop,
                     )
                 }
                 composable<AboutRoute> {
@@ -93,6 +110,7 @@ fun PosterApp() {
                         onOpenMovie = { movie, key ->
                             navController.navigate(DetailRoute(movie.id, movie.posterPath, movie.title, key, movie.isTv))
                         },
+                        scrollToTopSignal = searchScrollToTop,
                     )
                 }
                 composable<FavoritesRoute> {
@@ -109,6 +127,7 @@ fun PosterApp() {
                                 restoreState = true
                             }
                         },
+                        scrollToTopSignal = favoritesScrollToTop,
                     )
                 }
                 composable<DetailRoute> { entry ->

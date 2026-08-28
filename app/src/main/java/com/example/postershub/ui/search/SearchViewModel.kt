@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 enum class MediaFilter { ALL, MOVIE, TV }
 
@@ -34,10 +36,12 @@ class SearchViewModel(
     private val _mediaFilter = MutableStateFlow(MediaFilter.ALL)
     val mediaFilter: StateFlow<MediaFilter> = _mediaFilter.asStateFlow()
 
-    val results: Flow<PagingData<Movie>> = combine(
-        _query.debounce(350).map { it.trim() }.distinctUntilChanged(),
-        _mediaFilter,
-    ) { q, filter -> q to filter }
+    private val _recentQueries = MutableStateFlow<List<String>>(emptyList())
+    val recentQueries: StateFlow<List<String>> = _recentQueries.asStateFlow()
+
+    private val debouncedQuery = _query.debounce(350).map { it.trim() }.distinctUntilChanged()
+
+    val results: Flow<PagingData<Movie>> = combine(debouncedQuery, _mediaFilter) { q, filter -> q to filter }
         .flatMapLatest { (q, filter) ->
             if (q.length < 2) flowOf(PagingData.empty())
             else repo.search(q).map { page ->
@@ -52,11 +56,27 @@ class SearchViewModel(
         }
         .cachedIn(viewModelScope)
 
+    init {
+        viewModelScope.launch {
+            debouncedQuery.collect { q -> if (q.length >= 2) recordRecentQuery(q) }
+        }
+    }
+
     fun onQueryChange(value: String) {
         _query.value = value
     }
 
     fun onMediaFilterChange(value: MediaFilter) {
         _mediaFilter.value = value
+    }
+
+    fun clearRecentQueries() {
+        _recentQueries.value = emptyList()
+    }
+
+    private fun recordRecentQuery(query: String) {
+        _recentQueries.update { current ->
+            (listOf(query) + current.filterNot { it.equals(query, ignoreCase = true) }).take(8)
+        }
     }
 }
