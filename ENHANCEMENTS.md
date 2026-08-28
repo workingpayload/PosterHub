@@ -5,18 +5,15 @@ each tier).
 
 ## Critical
 
-1. **TMDB / fanart.tv attribution** — TMDB's API terms require displaying "This product uses the
-   TMDB API but is not endorsed or certified by TMDB" plus their logo somewhere in the app
-   (typically a Settings/About screen); fanart.tv likewise expects attribution. There's currently
-   no Settings/About screen at all. Missing this is a ToS compliance risk, not just polish.
-2. **Granular error handling on Home** — `HomeViewModel.load()` wraps all 7 parallel API calls in
-   one `coroutineScope`; if any single call fails (e.g. TV endpoints down), the *entire* home
-   screen shows a full-page error and hides sections that actually loaded fine. Each row should
-   fail independently so one flaky endpoint doesn't blank the whole feed.
-3. **Distinguish "no internet" from "API error"** — both currently surface as the same generic
-   string (`it.message`). A no-connection state deserves a distinct icon/message and should
-   auto-retry on reconnect; a 401 (bad API key) deserves a message that says so instead of a raw
-   exception string.
+1. ~~**TMDB / fanart.tv attribution**~~ — ✅ Done. Added an About screen (info icon on the Home
+   tab) with required TMDB + fanart.tv attribution text and links. (Logo asset still TODO — text
+   attribution satisfies the ToS requirement but the TMDB logo isn't bundled yet.)
+2. ~~**Granular error handling on Home**~~ — ✅ Done. Each Home row now loads and fails
+   independently (`HomeSection` + `SectionState`), with its own shimmer/error/retry, instead of
+   one failing endpoint blanking the whole feed.
+3. ~~**Distinguish "no internet" from "API error"**~~ — ✅ Done (Home + Detail). Added
+   `util/ErrorClassifier.kt`, which turns exceptions into network/auth/server-specific messages.
+   Auto-retry-on-reconnect is not implemented — retry is still manual (tap Retry).
 
 ## High
 
