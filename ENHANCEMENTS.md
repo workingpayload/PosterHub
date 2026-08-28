@@ -41,30 +41,32 @@ each tier).
 
 ## Medium
 
-14. **Warn before downloading original-resolution posters on metered/mobile data** — "4K" posters
-    can be several MB; a lightweight size estimate or a Wi-Fi-only download preference would help.
-15. **Source/language badge on variant thumbnails** — `PosterImage` already carries `source`
-    (TMDB/Fanart) and `language`/`isTextless`, which drives the ranking, but none of it is shown on
-    the variants strip — users can't tell why one poster is ranked above another.
-16. **Snackbar instead of full-screen replace for transient errors** — Home's error state replaces
-    the entire screen even for a background refresh failure; a Snackbar-with-Retry preserves
-    whatever content already loaded.
-17. **"Recent searches" on the Search tab** — currently the search field is always blank on
-    revisit; even a small in-memory recent-queries list would reduce retyping.
-18. **Reselecting a bottom-nav tab should scroll its content to top** — `NavigationBarItem` reuses
-    `launchSingleTop`/`restoreState` but doesn't reset scroll position when a tab is tapped while
-    already active, which is standard tab-bar behavior.
-19. **Adaptive layout for tablets/landscape** — grid column counts (`GridCells.Fixed(3)`) and
-    carousel height (`430.dp`) are hardcoded; on larger screens this wastes space and posters look
-    small. Use `WindowSizeClass` to scale columns.
-20. **Predictive back gesture support** — Android 13+ predictive back isn't wired up for the
-    detail/fullscreen screens, so back navigation doesn't get the system's animated preview.
-21. **Long-press quick actions on poster cards** — long-pressing a `PosterCard` in Home/Search
-    could pop a small menu (Favorite / Share) without a full navigation round-trip to Detail.
-22. **Share action** — there's no share sheet anywhere (share a poster image or a TMDB link);
-    common ask for a poster-browsing app.
-23. **Splash screen** — no use of `androidx.core.splashscreen`; cold start currently shows a blank
-    frame before Compose draws.
+14. ~~**Warn before downloading original-resolution posters on metered/mobile data**~~ — ✅ Done.
+    `Context.isMeteredConnection()` + a reusable `MeteredConfirmDialog`, wired into Detail's
+    Save/Wallpaper and Fullscreen's Save/Wallpaper. (No exact size estimate or Wi-Fi-only
+    preference — just a confirm prompt.)
+15. ~~**Source/language badge on variant thumbnails**~~ — ✅ Done on the Detail variants strip
+    ("TMDB · EN", "Fanart · No text", etc.).
+16. ~~**Snackbar instead of full-screen replace for transient errors**~~ — ✅ Done. Home was already
+    fixed by the per-row rework (Critical #2). Detail's load error was previously never shown at
+    all (`DetailUiState.error` was dead state) — now surfaced via a Snackbar with a Retry action.
+    Search's refresh-error hint also gained a Retry button.
+17. ~~**"Recent searches" on the Search tab**~~ — ✅ Done. In-memory, last 8 queries, shown as
+    suggestions below 2 characters, with a Clear action.
+18. ~~**Reselecting a bottom-nav tab should scroll its content to top**~~ — ✅ Done via a
+    per-tab signal counter in `PosterNav` + `animateScrollToItem(0)` in each screen.
+19. ~~**Adaptive layout for tablets/landscape**~~ — ✅ Done for Search and Favorites grids
+    (`GridCells.Adaptive(minSize = 110.dp)` instead of `Fixed(3)`). Home's carousel height and
+    Detail's hero margins are still fixed — left as-is since `LazyRow`/scrolling content doesn't
+    waste space the way a capped grid does.
+20. ~~**Predictive back gesture support**~~ — ✅ Done. `android:enableOnBackInvokedCallback="true"`
+    in the manifest; Navigation Compose 2.8's `NavHost` handles the rest automatically.
+21. ~~**Long-press quick actions on poster cards**~~ — ✅ Done. Long-press on any `PosterCard`
+    (Home, Search, Detail's "More Like This") opens a Favorite/Share menu.
+22. ~~**Share action**~~ — ✅ Done: the PosterCard quick menu (#21) and a dedicated Share button on
+    Detail both share a TMDB link via `ACTION_SEND`. Sharing the actual poster image (not just a
+    link) would need a `FileProvider` — left as a follow-up.
+23. ~~**Splash screen**~~ — ✅ Done via `androidx.core.splashscreen`.
 
 ## Low / polish
 
