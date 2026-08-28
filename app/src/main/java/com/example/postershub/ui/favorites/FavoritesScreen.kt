@@ -9,20 +9,27 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -31,7 +38,9 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,6 +69,7 @@ fun FavoritesScreen(
     viewModel: FavoritesViewModel = viewModel(factory = viewModelFactory { FavoritesViewModel() }),
 ) {
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
+    val sort by viewModel.sort.collectAsStateWithLifecycle()
     val gridState = rememberLazyGridState()
 
     LaunchedEffect(scrollToTopSignal) {
@@ -82,12 +92,40 @@ fun FavoritesScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        Text(
-            "Favorites",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp),
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 16.dp, bottom = 8.dp),
+        ) {
+            Text(
+                "Favorites",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.weight(1f),
+            )
+            var showSortMenu by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { showSortMenu = true }) {
+                    Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort")
+                }
+                DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Recently Added") },
+                        onClick = { viewModel.setSort(FavoritesSort.RECENT); showSortMenu = false },
+                        trailingIcon = { if (sort == FavoritesSort.RECENT) SortCheck() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Title (A-Z)") },
+                        onClick = { viewModel.setSort(FavoritesSort.TITLE); showSortMenu = false },
+                        trailingIcon = { if (sort == FavoritesSort.TITLE) SortCheck() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Top Rated") },
+                        onClick = { viewModel.setSort(FavoritesSort.RATING); showSortMenu = false },
+                        trailingIcon = { if (sort == FavoritesSort.RATING) SortCheck() },
+                    )
+                }
+            }
+        }
         LazyVerticalGrid(
             state = gridState,
             columns = GridCells.Adaptive(minSize = 110.dp),
@@ -144,4 +182,9 @@ fun FavoritesScreen(
             }
         }
     }
+}
+
+@Composable
+private fun SortCheck() {
+    Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
 }

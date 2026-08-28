@@ -3,6 +3,7 @@ package com.example.postershub.di
 import android.content.Context
 import com.example.postershub.BuildConfig
 import com.example.postershub.data.local.FavoritesStore
+import com.example.postershub.data.local.SettingsStore
 import com.example.postershub.data.remote.ApiAuthInterceptor
 import com.example.postershub.data.remote.FanartApi
 import com.example.postershub.data.remote.TmdbApi
@@ -29,6 +30,8 @@ object ServiceLocator {
     lateinit var posterRepository: PosterRepository
         private set
     lateinit var favoritesStore: FavoritesStore
+        private set
+    lateinit var settingsStore: SettingsStore
         private set
 
     private var initialized = false
@@ -73,6 +76,7 @@ object ServiceLocator {
         movieRepository = MovieRepository(tmdbApi)
         posterRepository = PosterRepository(tmdbApi, fanartApi)
         favoritesStore = FavoritesStore(context.applicationContext)
+        settingsStore = SettingsStore(context.applicationContext)
     }
 
     /**

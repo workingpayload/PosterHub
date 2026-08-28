@@ -47,6 +47,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.example.postershub.data.ImageUrl
 import com.example.postershub.di.ServiceLocator
@@ -83,8 +84,10 @@ fun FullscreenPosterScreen(
     var isWallpapering by remember { mutableStateOf(false) }
     var pendingMeteredAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
+    val warnOnMetered by ServiceLocator.settingsStore.warnOnMetered.collectAsStateWithLifecycle(true)
+
     fun guardedRun(action: () -> Unit) {
-        if (context.isMeteredConnection()) pendingMeteredAction = action else action()
+        if (warnOnMetered && context.isMeteredConnection()) pendingMeteredAction = action else action()
     }
 
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->

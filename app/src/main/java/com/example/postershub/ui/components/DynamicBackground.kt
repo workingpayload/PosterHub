@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -50,8 +51,8 @@ fun DynamicBackground(
         val palette = withContext(Dispatchers.Default) { Palette.from(bmp).generate() }
         val vibrant = palette.getVibrantColor(Electric.toArgb())
         val dark = palette.getDarkMutedColor(Ink.toArgb())
-        topColor = Color(vibrant)
-        bottomColor = Color(dark)
+        topColor = Color(vibrant).darkenIfTooLight()
+        bottomColor = Color(dark).darkenIfTooLight()
     }
 
     val animatedTop by animateColorAsState(topColor, tween(700), label = "bg-top")
@@ -82,4 +83,15 @@ fun DynamicBackground(
         )
         content()
     }
+}
+
+/**
+ * Caps a palette-extracted color's luminance so Mist/white text drawn over it (title, actions,
+ * overview) stays legible regardless of how bright the source poster is.
+ */
+private fun Color.darkenIfTooLight(maxLuminance: Float = 0.55f): Color {
+    val l = luminance()
+    if (l <= maxLuminance) return this
+    val factor = maxLuminance / l
+    return copy(red = red * factor, green = green * factor, blue = blue * factor)
 }

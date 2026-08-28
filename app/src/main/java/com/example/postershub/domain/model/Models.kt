@@ -42,4 +42,7 @@ data class PosterImage(
 ) {
     val pixels: Long get() = width.toLong() * height.toLong()
     val isTextless: Boolean get() = language.isNullOrBlank() || language == "00"
+
+    /** TMDB "original" posters are ~2000px wide; fanart.tv posters are ~1000px and never qualify. */
+    val isUltraHd: Boolean get() = width >= 1800
 }

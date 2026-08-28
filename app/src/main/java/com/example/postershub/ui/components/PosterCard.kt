@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -40,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -74,6 +76,7 @@ fun SharedTransitionScope.PosterCard(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
     var showMenu by remember { mutableStateOf(false) }
     var isFavorite by remember { mutableStateOf(false) }
 
@@ -96,7 +99,10 @@ fun SharedTransitionScope.PosterCard(
                 interactionSource = interaction,
                 indication = null,
                 onClick = onClick,
-                onLongClick = { showMenu = true },
+                onLongClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    showMenu = true
+                },
             )
     ) {
         ShimmerBox(Modifier.fillMaxSize())
@@ -129,6 +135,7 @@ fun SharedTransitionScope.PosterCard(
                 },
                 onClick = {
                     showMenu = false
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     val posterUrl = ImageUrl.tmdbOriginal(movie.posterPath) ?: return@DropdownMenuItem
                     scope.launch {
                         ServiceLocator.favoritesStore.toggle(
@@ -139,6 +146,7 @@ fun SharedTransitionScope.PosterCard(
                                 posterUrl = posterUrl,
                                 addedAt = System.currentTimeMillis(),
                                 isTv = movie.isTv,
+                                voteAverage = movie.voteAverage,
                             )
                         )
                     }

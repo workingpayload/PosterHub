@@ -33,6 +33,7 @@ data class FavoriteMovie(
     val addedAt: Long,
     val isTv: Boolean = false,
     val localPosterPath: String? = null,
+    val voteAverage: Double = 0.0,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "postershub_favorites")

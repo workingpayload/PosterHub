@@ -80,6 +80,7 @@ class DetailViewModel(
                     posterUrl = posterUrl,
                     addedAt = System.currentTimeMillis(),
                     isTv = isTv,
+                    voteAverage = s.movie?.voteAverage ?: 0.0,
                 )
             )
         }

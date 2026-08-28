@@ -13,6 +13,7 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,8 +63,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -72,6 +75,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.example.postershub.data.ImageUrl
+import com.example.postershub.di.ServiceLocator
 import com.example.postershub.domain.model.CastMember
 import com.example.postershub.domain.model.ImageSource
 import com.example.postershub.domain.model.Movie
@@ -103,6 +107,7 @@ fun DetailScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isFavorite by viewModel.isFavorite.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScopeSafe()
     val scroll = rememberScrollState()
 
@@ -118,8 +123,10 @@ fun DetailScreen(
     var pendingMeteredAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
+    val warnOnMetered by ServiceLocator.settingsStore.warnOnMetered.collectAsStateWithLifecycle(true)
+
     fun guardedRun(action: () -> Unit) {
-        if (context.isMeteredConnection()) pendingMeteredAction = action else action()
+        if (warnOnMetered && context.isMeteredConnection()) pendingMeteredAction = action else action()
     }
 
     LaunchedEffect(state.error) {
@@ -138,6 +145,7 @@ fun DetailScreen(
                 isSaving = true
                 val ok = ImageActions.savePoster(context, url, route.title)
                 isSaving = false
+                if (ok) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 Toast.makeText(context, if (ok) "Saved to gallery" else "Save failed", Toast.LENGTH_SHORT).show()
             }
         } else if (!granted) {
@@ -155,6 +163,7 @@ fun DetailScreen(
                 isSaving = true
                 val ok = ImageActions.savePoster(context, url, route.title)
                 isSaving = false
+                if (ok) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 Toast.makeText(context, if (ok) "Saved to gallery" else "Save failed", Toast.LENGTH_SHORT).show()
             }
         } else {
@@ -170,6 +179,7 @@ fun DetailScreen(
             isApplyingWallpaper = true
             val ok = ImageActions.applyWallpaper(context, url, which)
             isApplyingWallpaper = false
+            if (ok) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             Toast.makeText(context, if (ok) "Wallpaper set" else "Couldn't set wallpaper", Toast.LENGTH_SHORT).show()
         }
     }
@@ -216,6 +226,9 @@ fun DetailScreen(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
+                    if (state.posters.firstOrNull()?.isUltraHd == true) {
+                        UltraHdBadge(Modifier.align(Alignment.TopEnd).padding(10.dp))
+                    }
                 }
             }
 
@@ -254,16 +267,22 @@ fun DetailScreen(
                 )
             }
 
-            // Actions
+            // Actions. Horizontally scrollable so it never clips at large system font scales or
+            // on narrow screens — there are 4 buttons and their labels grow with font scale.
             Row(
                 horizontalArrangement = Arrangement.spacedBy(28.dp),
-                modifier = Modifier.padding(vertical = 18.dp),
+                modifier = Modifier
+                    .padding(vertical = 18.dp)
+                    .horizontalScroll(rememberScrollState()),
             ) {
                 ActionButton(
                     icon = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                     label = "Favorite",
                     tint = if (isFavorite) Gold else Color.White,
-                    onClick = { viewModel.toggleFavorite(route.title, route.posterPath) },
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.toggleFavorite(route.title, route.posterPath)
+                    },
                 )
                 ActionButton(Icons.Filled.Download, "Save", loading = isSaving) { guardedRun(::download) }
                 ActionButton(Icons.Filled.Wallpaper, "Wallpaper", loading = isApplyingWallpaper) {
@@ -501,6 +520,9 @@ private fun VariantsStrip(
                             .background(Color.Black.copy(alpha = 0.55f))
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     )
+                    if (poster.isUltraHd) {
+                        UltraHdBadge(Modifier.align(Alignment.TopEnd).padding(6.dp))
+                    }
                 }
             }
         }
@@ -512,6 +534,20 @@ private fun variantBadgeText(poster: PosterImage): String {
     val source = if (poster.source == ImageSource.TMDB) "TMDB" else "Fanart"
     val language = if (poster.isTextless) "No text" else poster.language?.uppercase() ?: "EN"
     return "$source · $language"
+}
+
+@Composable
+private fun UltraHdBadge(modifier: Modifier = Modifier) {
+    Text(
+        "4K",
+        color = Color.Black,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        modifier = modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(Gold)
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
 }
 
 @Composable
