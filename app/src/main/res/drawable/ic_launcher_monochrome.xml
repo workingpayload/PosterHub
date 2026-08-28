@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon (Android 13+) silhouette: fanned poster stack. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Fanned back card -->
+    <group android:rotation="15" android:pivotX="54" android:pivotY="54">
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="4"
+            android:pathData="M46,32 L62,32 A5,5 0 0 1 67,37 L67,71 A5,5 0 0 1 62,76 L46,76 A5,5 0 0 1 41,71 L41,37 A5,5 0 0 1 46,32 Z" />
+    </group>
+
+    <!-- Front card -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M46,32 L62,32 A5,5 0 0 1 67,37 L67,71 A5,5 0 0 1 62,76 L46,76 A5,5 0 0 1 41,71 L41,37 A5,5 0 0 1 46,32 Z" />
+</vector>

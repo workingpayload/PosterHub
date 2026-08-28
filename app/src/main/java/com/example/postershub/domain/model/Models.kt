@@ -1,0 +1,33 @@
+package com.example.postershub.domain.model
+
+enum class MediaType { MOVIE, TV }
+
+/** A movie or TV series as shown in feeds / search / detail. Paths are raw TMDB paths. */
+data class Movie(
+    val id: Int,
+    val title: String,
+    val overview: String,
+    val posterPath: String?,
+    val backdropPath: String?,
+    val releaseDate: String?,
+    val voteAverage: Double,
+    val mediaType: MediaType = MediaType.MOVIE,
+) {
+    val year: String? get() = releaseDate?.takeIf { it.length >= 4 }?.substring(0, 4)
+    val isTv: Boolean get() = mediaType == MediaType.TV
+}
+
+enum class ImageSource { TMDB, FANART }
+
+/** A single poster candidate for a title, from any source, ready to display/download. */
+data class PosterImage(
+    val url: String,        // full-resolution URL
+    val thumbUrl: String,   // smaller URL for grids/strips
+    val width: Int,
+    val height: Int,
+    val source: ImageSource,
+    val language: String?,  // ISO-639-1, "" / null => textless
+) {
+    val pixels: Long get() = width.toLong() * height.toLong()
+    val isTextless: Boolean get() = language.isNullOrBlank() || language == "00"
+}
