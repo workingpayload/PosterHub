@@ -1,4 +1,4 @@
-# PostersHub v1.0.0
+# PostersHub v2.0.0
 
 Discover, download, favorite, and set high-quality official posters directly from your Android device — **completely ad-free**.
 
@@ -33,11 +33,9 @@ No annoying ads. No distractions. Just posters.
 * 🎯 **Native splash screen**, **predictive back gesture**, **haptic feedback**, and **adaptive layouts** for tablets and landscape
 * ⚙️ **New Settings screen** — theme toggle, clear image cache, app version, and required TMDB / fanart.tv attribution
 
-## 🚀 First Release
+## 🚀 Release Info
 
-This is the initial public release of PostersHub.
-
-**Version:** 1.0.0
+**Version:** 2.0.0
 **Platform:** Android
 
 Download the APK below and start exploring PostersHub!
