@@ -64,12 +64,17 @@ class TmdbPagingSource(
     private val fetch: suspend (page: Int) -> TmdbPageDto,
 ) : PagingSource<Int, Movie>() {
 
+    // TMDB search results can repeat the same item across adjacent pages (score ties at the
+    // page boundary); LazyVerticalGrid requires unique keys, so dedupe across the whole session.
+    private val seenIds = mutableSetOf<String>()
+
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Movie> = try {
         val page = params.key ?: 1
         val response = fetch(page)
         val movies = response.results
             .filter { it.mediaType != "person" && it.posterPath != null }
             .map { it.toMovie() }
+            .filter { seenIds.add("${it.mediaType}-${it.id}") }
         LoadResult.Page(
             data = movies,
             prevKey = null,
